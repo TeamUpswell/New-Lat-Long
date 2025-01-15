@@ -1,0 +1,47 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.env/
+
+# IDEs and editors
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.idea/
+*.swp
+
+# Logs
+*.log
+
+# MacOS specific
+.DS_Store
+
+# Other sensitive or unnecessary files
+secrets/
+*.sqlite3
