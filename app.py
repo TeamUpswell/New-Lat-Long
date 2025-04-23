@@ -48,16 +48,26 @@ def main():
             # Determine file type and read accordingly
             if uploaded_file.name.endswith('.csv'):
                 df = pd.read_csv(uploaded_file)
-                # Assume addresses are in the first column
-                address_column = df.columns[0]
+                
+                # Let user select which column contains addresses
+                address_column = st.selectbox(
+                    "Select the column containing addresses:",
+                    options=df.columns.tolist()
+                )
+                
                 addresses = df[address_column].dropna().tolist()
+                
+                # Preview the dataframe
+                st.subheader("Preview of your data:")
+                st.dataframe(df.head())
             else:
                 # Read TXT file
                 data = StringIO(uploaded_file.getvalue().decode("utf-8"))
                 addresses = [line.strip() for line in data if line.strip()]
+                address_column = None  # No column selection for TXT files
             
             st.success(f"Successfully loaded {len(addresses)} addresses.")
-            st.write("Preview of addresses:")
+            st.write("Preview of addresses to geocode:")
             st.write(pd.DataFrame(addresses, columns=['Address']).head())
 
             if st.button("Run Geocoding"):
@@ -66,21 +76,49 @@ def main():
                     return
 
                 st.info("Starting geocoding process...")
-                geocoded_data = []
-                for idx, address in enumerate(addresses, start=1):
-                    lat, lng = geocode_address(address, API_KEY)
-                    geocoded_data.append({
-                        'Address': address,
-                        'Latitude': lat,
-                        'Longitude': lng
-                    })
-                    st.progress(idx / len(addresses))
-                    time.sleep(0.1)  # To respect API rate limits
+                progress_bar = st.progress(0)
+                status_text = st.empty()
+                
+                if uploaded_file.name.endswith('.csv'):
+                    # For CSV files, preserve the original DataFrame and add new columns
+                    result_df = df.copy()
+                    result_df['Latitude'] = None
+                    result_df['Longitude'] = None
+                    
+                    for idx, (index, row) in enumerate(df.iterrows()):
+                        address = row[address_column]
+                        if pd.notna(address):  # Skip NaN values
+                            lat, lng = geocode_address(address, API_KEY)
+                            result_df.at[index, 'Latitude'] = lat
+                            result_df.at[index, 'Longitude'] = lng
+                        
+                        # Update progress
+                        progress = (idx + 1) / len(df)
+                        progress_bar.progress(progress)
+                        status_text.text(f"Processing {idx+1} of {len(df)}: {address}")
+                        time.sleep(0.1)  # To respect API rate limits
+                else:
+                    # For TXT files, create a new DataFrame
+                    geocoded_data = []
+                    for idx, address in enumerate(addresses, start=1):
+                        lat, lng = geocode_address(address, API_KEY)
+                        geocoded_data.append({
+                            'Address': address,
+                            'Latitude': lat,
+                            'Longitude': lng
+                        })
+                        
+                        # Update progress
+                        progress_bar.progress(idx / len(addresses))
+                        status_text.text(f"Processing {idx} of {len(addresses)}: {address}")
+                        time.sleep(0.1)  # To respect API rate limits
+                    
+                    result_df = pd.DataFrame(geocoded_data)
 
-                # Create DataFrame from results
-                result_df = pd.DataFrame(geocoded_data)
+                status_text.text("Geocoding complete!")
                 st.success("Geocoding complete.")
-                st.write(result_df)
+                st.subheader("Results:")
+                st.dataframe(result_df)
 
                 # Provide download link
                 csv = result_df.to_csv(index=False)
@@ -93,6 +131,7 @@ def main():
 
         except Exception as e:
             st.error(f"Error processing file: {e}")
+            st.exception(e)  # This will display the full traceback for debugging
 
 if __name__ == '__main__':
     main()
